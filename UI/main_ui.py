@@ -14,6 +14,18 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
         st.info("⚙️ Run the simulation to view results here.")
         return
 
+    st.markdown(
+        """
+        <style>
+            div.streamlit-expanderHeader p {
+                font-size: 1.2rem;
+                font-weight: 700;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # --- Simulation Results ---
     with st.expander("Simulation Results", expanded=True):
         st.subheader("Printed Path & Layer Metrics")
@@ -23,26 +35,27 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
     st.markdown("---")
 
     # --- Optimization controls ---
-    st.subheader("Optimization Setup")
-    st.caption("Adjust per-layer speed to reach a target substrate temperature.")
+    submitted_opt = False
+    with st.expander("Optimization Setup", expanded=True):
+        st.caption("Adjust per-layer speed to reach a target substrate temperature.")
 
-    with st.form("opt_form"):
-        d1, d2, d3 = st.columns([1.5, 1, 1])
-        opt_target = d1.number_input(
-            "Target substrate temperature (°C)", value=120.0, step=5.0
-        )
-        opt_iters = d2.number_input(
-            "Max bisection steps per layer", value=6, min_value=1, max_value=12
-        )
-        opt_tol = d3.number_input(
-            "Tolerance (°C)", value=2.0, min_value=0.1, step=0.5
-        )
+        with st.form("opt_form"):
+            d1, d2, d3 = st.columns([1.5, 1, 1])
+            opt_target = d1.number_input(
+                "Target substrate temperature (°C)", value=120.0, step=5.0
+            )
+            opt_iters = d2.number_input(
+                "Max bisection steps per layer", value=6, min_value=1, max_value=12
+            )
+            opt_tol = d3.number_input(
+                "Tolerance (°C)", value=2.0, min_value=0.1, step=0.5
+            )
 
-        e1, e2 = st.columns(2)
-        opt_smin = e1.number_input("Min time ×", value=0.5, step=0.1)
-        opt_smax = e2.number_input("Max time ×", value=2.5, step=0.1)
+            e1, e2 = st.columns(2)
+            opt_smin = e1.number_input("Min time ×", value=0.5, step=0.1)
+            opt_smax = e2.number_input("Max time ×", value=2.5, step=0.1)
 
-        submitted_opt = st.form_submit_button("Run Optimization")
+            submitted_opt = st.form_submit_button("Run Optimization")
 
     if submitted_opt and S.has_base:
         with st.status("Optimizing per-layer time...", expanded=True) as status:
@@ -90,14 +103,6 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
             if has_opt_gifs(GIFS):
                 st.markdown("#### Thermal Profile History (Optimized)")
                 ui.show_gifs("opt", S, last_frame_path)
-            if "g_opt" in S.cache:
-                st.download_button(
-                    "⬇️ Download optimized G-code",
-                    data=S.cache["g_opt"],
-                    file_name="optimized.gcode",
-                    mime="text/plain",
-                    key="dl_opt_gcode_results",
-                )
         else:
             ui.clear_opt_overlay_slots()
             st.info("Run the optimization to see results here.")
