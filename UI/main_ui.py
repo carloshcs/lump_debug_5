@@ -97,14 +97,11 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
                 st.error(f"❌ Optimization failed: {e}")
 
     has_opt_results = "pp_opt" in S.cache and "pm_opt" in S.cache
-    with st.expander("Optimized Results", expanded=has_opt_results):
-        if has_opt_results:
-            ui.draw_opt_overlay_if_available(S)
-            if has_opt_gifs(GIFS):
-                st.markdown("#### Thermal Profile History (Optimized)")
-                ui.show_gifs("opt", S, last_frame_path)
-        else:
-            ui.clear_opt_overlay_slots()
-            st.info("Run the optimization to see results here.")
+    if has_opt_results:
+        ui.draw_opt_overlay_if_available(S)
+        if has_opt_gifs(GIFS):
+            ui.show_gifs("opt", S, last_frame_path)
+    else:
+        ui.clear_opt_overlay_slots()
 
     ui.export_section(S)
