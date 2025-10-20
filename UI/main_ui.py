@@ -18,8 +18,8 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
         """
         <style>
             div.streamlit-expanderHeader p {
-                font-size: 1.2rem;
-                font-weight: 700;
+                font-size: 1.6rem;
+                font-weight: bold;
             }
         </style>
         """,
