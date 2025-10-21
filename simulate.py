@@ -246,7 +246,8 @@ def _simulate_states_core(model, t, x, y, zc, dt=0.05,
     logs.append(
         f"simulate_states: events={len(t)}, duration={t_limit:.2f}s, dt={dt}, "
         f"cooldown={post_cooldown}, radiation={'on' if getattr(model,'enable_radiation',False) else 'off'}, "
-        f"emissivity={getattr(model,'emissivity',0.0):.2f}"
+        f"emissivity={getattr(model,'emissivity',0.0):.2f}, "
+        f"tabular_props={'on' if getattr(model, 'use_tabular', False) else 'off'}"
     )
     return states, "\n".join(logs)
 

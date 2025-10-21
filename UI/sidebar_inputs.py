@@ -20,6 +20,24 @@ def parse_table_text(text: str):
     return (T, V) if T else None
 
 
+def _table_signature(table):
+    """Return a rounded tuple signature for a property table."""
+    if (not table) or (not isinstance(table, (tuple, list))) or len(table) != 2:
+        return ()
+    T_vals, V_vals = table
+    try:
+        pairs = list(zip(T_vals, V_vals))
+    except TypeError:
+        return ()
+    sig = []
+    for t, v in pairs:
+        try:
+            sig.append((round(float(t), 6), round(float(v), 6)))
+        except Exception:
+            continue
+    return tuple(sig)
+
+
 def get_inputs(S, key_prefix="main"):
     """
     Build all sidebar input sections.
@@ -137,6 +155,10 @@ def get_inputs(S, key_prefix="main"):
         else:
             RHO, K, CP, EMISSIVITY = 1200.0, 0.25, 1300.0, 0.85
         S["EMISSIVITY"] = EMISSIVITY
+
+        mat_tables = MATERIALS.get(mat_choice, {}) if mat_choice else {}
+        K_TABLE = mat_tables.get("k_table")
+        CP_TABLE = mat_tables.get("cp_table")
 
         # --- Simplified single button ---
         if st.button("🧩 Add / Edit Material", key=f"{key_prefix}_edit_material"):
@@ -270,6 +292,8 @@ def get_inputs(S, key_prefix="main"):
         ("cp", round(float(CP), 6)),
         ("emissivity", round(float(EMISSIVITY), 6)),
         ("use_tabular", bool(USE_TABULAR)),
+        ("k_table_sig", _table_signature(K_TABLE)),
+        ("cp_table_sig", _table_signature(CP_TABLE)),
         ("enable_radiation", bool(ENABLE_RADIATION)),
         ("seg_width_mm", round(float(SEG_WIDTH_mm), 6)),
         ("seg_height_mm", round(float(SEG_HEIGHT_mm), 6)),
@@ -312,5 +336,6 @@ def get_inputs(S, key_prefix="main"):
         "DT": DT, "COOLDOWN": COOLDOWN, "SNAP_INT": SNAP_INT,
         "LINK_MAX_F": LINK_MAX_F, "V_RAD_MM": V_RAD_MM,
         "MARKER_SIZE": MARKER_SIZE, "MATERIALS_DIR": MATERIALS_DIR,
-        "MATERIALS": MATERIALS, "parse_table_text": parse_table_text
+        "MATERIALS": MATERIALS, "parse_table_text": parse_table_text,
+        "K_TABLE": K_TABLE, "CP_TABLE": CP_TABLE,
     }
