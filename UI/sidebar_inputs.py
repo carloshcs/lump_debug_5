@@ -78,11 +78,48 @@ def get_inputs(S, key_prefix="main"):
             )
 
         rho_seed, k_seed, cp_seed, emi_seed, rad_seed = _seed_from(mat_choice)
-        USE_TABULAR = st.checkbox("Use temperature-dependent k(T), cp(T)",
-                                  value=bool(S.get("USE_TABULAR", False)), key=f"{key_prefix}_USE_TABULAR")
-        ENABLE_RADIATION = st.checkbox("Enable radiation losses",
-                                       value=bool(S.get("ENABLE_RADIATION", rad_seed)), key=f"{key_prefix}_ENABLE_RADIATION")
+
+        last_mat_key = f"{key_prefix}_last_material"
+        prev_material = st.session_state.get(last_mat_key)
+        mat_changed = mat_choice != prev_material
+        st.session_state[last_mat_key] = mat_choice
+
+        def _mark_inputs_dirty():
+            if getattr(S, "has_base", False):
+                st.session_state.inputs_dirty = True
+
+        tab_key = f"{key_prefix}_USE_TABULAR"
+        if tab_key not in st.session_state:
+            st.session_state[tab_key] = bool(S.get("USE_TABULAR", False))
+
+        def _on_tabular_change():
+            S["USE_TABULAR"] = bool(st.session_state[tab_key])
+            _mark_inputs_dirty()
+
+        USE_TABULAR = st.checkbox(
+            "Use temperature-dependent k(T), cp(T)",
+            key=tab_key,
+            on_change=_on_tabular_change,
+        )
+        USE_TABULAR = bool(USE_TABULAR)
         S["USE_TABULAR"] = USE_TABULAR
+
+        rad_key = f"{key_prefix}_ENABLE_RADIATION"
+        if mat_changed:
+            st.session_state[rad_key] = bool(rad_seed)
+        elif rad_key not in st.session_state:
+            st.session_state[rad_key] = bool(S.get("ENABLE_RADIATION", rad_seed))
+
+        def _on_radiation_change():
+            S["ENABLE_RADIATION"] = bool(st.session_state[rad_key])
+            _mark_inputs_dirty()
+
+        ENABLE_RADIATION = st.checkbox(
+            "Enable radiation losses",
+            key=rad_key,
+            on_change=_on_radiation_change,
+        )
+        ENABLE_RADIATION = bool(ENABLE_RADIATION)
         S["ENABLE_RADIATION"] = ENABLE_RADIATION
 
         def readonly(label, val):
