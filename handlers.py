@@ -147,6 +147,8 @@ def run_base(
                                  mime="application/pdf")
 
     S.has_base = True
+    S.last_sim_signature = S.get("current_signature")
+    S.inputs_dirty = False
 
 
 # ---------------- Optimize ----------------

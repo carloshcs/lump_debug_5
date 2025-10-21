@@ -44,6 +44,9 @@ def handle_actions(S, ui, inputs, DIRS, GIFS):
                 pass
         S.cache.clear()
         S.has_base = False
+        S.last_sim_signature = None
+        S.current_signature = None
+        S.inputs_dirty = False
         ui.clear_all()
         logs_slot.empty()
         pdf_slot.empty()

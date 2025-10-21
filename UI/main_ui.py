@@ -11,7 +11,13 @@ def show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path):
 
     # --- No simulation yet ---
     if not getattr(S, "has_base", False):
+        ui.clear_all()
         st.info("⚙️ Run the simulation to view results here.")
+        return
+
+    if S.get("inputs_dirty", False):
+        ui.clear_all()
+        st.warning("Inputs changed since the last run. Re-run the simulation to refresh the results.")
         return
 
     st.markdown(

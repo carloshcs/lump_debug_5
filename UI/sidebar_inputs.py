@@ -78,11 +78,48 @@ def get_inputs(S, key_prefix="main"):
             )
 
         rho_seed, k_seed, cp_seed, emi_seed, rad_seed = _seed_from(mat_choice)
-        USE_TABULAR = st.checkbox("Use temperature-dependent k(T), cp(T)",
-                                  value=bool(S.get("USE_TABULAR", False)), key=f"{key_prefix}_USE_TABULAR")
-        ENABLE_RADIATION = st.checkbox("Enable radiation losses",
-                                       value=bool(S.get("ENABLE_RADIATION", rad_seed)), key=f"{key_prefix}_ENABLE_RADIATION")
+
+        last_mat_key = f"{key_prefix}_last_material"
+        prev_material = st.session_state.get(last_mat_key)
+        mat_changed = mat_choice != prev_material
+        st.session_state[last_mat_key] = mat_choice
+
+        def _mark_inputs_dirty():
+            if getattr(S, "has_base", False):
+                st.session_state.inputs_dirty = True
+
+        tab_key = f"{key_prefix}_USE_TABULAR"
+        if tab_key not in st.session_state:
+            st.session_state[tab_key] = bool(S.get("USE_TABULAR", False))
+
+        def _on_tabular_change():
+            S["USE_TABULAR"] = bool(st.session_state[tab_key])
+            _mark_inputs_dirty()
+
+        USE_TABULAR = st.checkbox(
+            "Use temperature-dependent k(T), cp(T)",
+            key=tab_key,
+            on_change=_on_tabular_change,
+        )
+        USE_TABULAR = bool(USE_TABULAR)
         S["USE_TABULAR"] = USE_TABULAR
+
+        rad_key = f"{key_prefix}_ENABLE_RADIATION"
+        if mat_changed:
+            st.session_state[rad_key] = bool(rad_seed)
+        elif rad_key not in st.session_state:
+            st.session_state[rad_key] = bool(S.get("ENABLE_RADIATION", rad_seed))
+
+        def _on_radiation_change():
+            S["ENABLE_RADIATION"] = bool(st.session_state[rad_key])
+            _mark_inputs_dirty()
+
+        ENABLE_RADIATION = st.checkbox(
+            "Enable radiation losses",
+            key=rad_key,
+            on_change=_on_radiation_change,
+        )
+        ENABLE_RADIATION = bool(ENABLE_RADIATION)
         S["ENABLE_RADIATION"] = ENABLE_RADIATION
 
         def readonly(label, val):
@@ -223,6 +260,47 @@ def get_inputs(S, key_prefix="main"):
             key=f"{key_prefix}_MG_NX",
         )
         S["MICROGRID_ENABLE"], S["MG_NZ"], S["MG_NX"] = bool(use_mg), int(mg_nz), int(mg_nx)
+
+    # Track configuration signature to detect when cached simulation results become stale.
+    signature = (
+        ("gcode_name", getattr(gcode_file, "name", "")),
+        ("material", mat_choice or ""),
+        ("rho", round(float(RHO), 6)),
+        ("k", round(float(K), 6)),
+        ("cp", round(float(CP), 6)),
+        ("emissivity", round(float(EMISSIVITY), 6)),
+        ("use_tabular", bool(USE_TABULAR)),
+        ("enable_radiation", bool(ENABLE_RADIATION)),
+        ("seg_width_mm", round(float(SEG_WIDTH_mm), 6)),
+        ("seg_height_mm", round(float(SEG_HEIGHT_mm), 6)),
+        ("seg_len_mm", round(float(SEG_LEN_mm), 6)),
+        ("t_nozzle", round(float(T_NOZZLE), 6)),
+        ("t_bed", round(float(T_BED), 6)),
+        ("t_inf", round(float(T_INF), 6)),
+        ("h_coef", round(float(H_COEF), 6)),
+        ("bed_frac", round(float(BED_FRAC), 6)),
+        ("contact_fr", round(float(CONTACT_FR), 6)),
+        ("dt", round(float(DT), 6)),
+        ("cooldown", round(float(COOLDOWN), 6)),
+        ("snap_int", round(float(SNAP_INT), 6)),
+        ("link_max_f", round(float(LINK_MAX_F), 6)),
+        ("v_rad_mm", V_RAD_MM.strip()),
+        ("marker_size", int(MARKER_SIZE)),
+        ("microgrid_enable", bool(use_mg)),
+        ("mg_nz", int(mg_nz)),
+        ("mg_nx", int(mg_nx)),
+    )
+    S.current_signature = signature
+    last_sig = S.get("last_sim_signature")
+    if getattr(S, "has_base", False) and last_sig is not None:
+        if signature != last_sig:
+            S.inputs_dirty = True
+        else:
+            S.inputs_dirty = False
+    elif not getattr(S, "has_base", False):
+        S.inputs_dirty = False
+    else:
+        S.inputs_dirty = False
 
     return {
         "gcode_file": gcode_file,

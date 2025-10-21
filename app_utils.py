@@ -122,3 +122,6 @@ def init_state(S):
     if "replay_tick" not in S: S.replay_tick = 0
     if "overlay_tick" not in S: S.overlay_tick = 0
     if "chart_tick" not in S: S.chart_tick = 0
+    if "inputs_dirty" not in S: S.inputs_dirty = False
+    if "last_sim_signature" not in S: S.last_sim_signature = None
+    if "current_signature" not in S: S.current_signature = None
