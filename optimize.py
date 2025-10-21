@@ -397,4 +397,7 @@ def _build_model(cfg) -> GrowingLumpModel:
         microgrid_enable = cfg.get("MICROGRID_ENABLE", False),
         nx = int(cfg.get("MG_NX", 1)),
         nz = int(cfg.get("MG_NZ", 1)),
+        use_tabular=cfg.get("USE_TABULAR", False),
+        k_table=cfg.get("K_TABLE"),
+        cp_table=cfg.get("CP_TABLE"),
     )

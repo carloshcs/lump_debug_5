@@ -3,6 +3,35 @@
 import numpy as np
 
 class GrowingLumpModel:
+    @staticmethod
+    def _prepare_table(table):
+        if (not table) or (not isinstance(table, (tuple, list))) or len(table) != 2:
+            return None
+        T_vals, V_vals = table
+        try:
+            T_arr = np.asarray(T_vals, dtype=float)
+            V_arr = np.asarray(V_vals, dtype=float)
+        except Exception:
+            return None
+        if T_arr.size == 0 or V_arr.size == 0:
+            return None
+        order = np.argsort(T_arr)
+        T_arr = T_arr[order]
+        V_arr = V_arr[order]
+        return (T_arr, V_arr)
+
+    @staticmethod
+    def _interp_table(table, temps):
+        if table is None:
+            return None
+        T_arr, V_arr = table
+        if T_arr.size == 0 or V_arr.size == 0:
+            return None
+        temps = np.asarray(temps, dtype=float)
+        if T_arr.size == 1:
+            return np.full_like(temps, V_arr[0], dtype=float)
+        return np.interp(temps, T_arr, V_arr, left=V_arr[0], right=V_arr[-1])
+
     def __init__(self, seg_len, seg_width, seg_height,
                  rho, cp, k,
                  T_bed, T_amb, h,
@@ -21,7 +50,10 @@ class GrowingLumpModel:
                  enable_radiation: bool = False,  # toggle radiation losses
                  rad_top_mul: float = 0.0,        # default: NO top radiation
                  rad_side_mul: float = 1.0,       # default: radiation on sides/ends
-                 rad_bottom_mul: float = 0.0      # default: NO bottom radiation
+                 rad_bottom_mul: float = 0.0,     # default: NO bottom radiation
+                 use_tabular: bool = False,
+                 k_table=None,
+                 cp_table=None
                  ):
 
         # --- Geometry / material ---
@@ -29,6 +61,14 @@ class GrowingLumpModel:
         self.W = float(seg_width)
         self.H = float(seg_height)
         self.rho, self.cp, self.k = float(rho), float(cp), float(k)
+        self.cp_ref = float(self.cp)
+        self.k_ref = float(self.k)
+        self._k_ref_safe = self.k_ref if abs(self.k_ref) > 1e-12 else 1e-12
+        self.use_tabular = bool(use_tabular)
+        self._k_table = self._prepare_table(k_table)
+        self._cp_table = self._prepare_table(cp_table)
+        self.k_eff = float(self.k_ref)
+        self.cp_eff = float(self.cp_ref)
 
         # --- Environment & time ---
         self.T_bed, self.T_amb, self.h = float(T_bed), float(T_amb), float(h)
@@ -58,7 +98,8 @@ class GrowingLumpModel:
 
         # --- Lump geometry (constant size thanks to uniform resampling) ---
         self.V = self.W * self.H * self.L
-        self.C = self.rho * self.cp * self.V
+        self.mass = self.rho * self.V
+        self.C = self.mass * self.cp_ref
         self.A_end    = self.W * self.H
         self.A_top    = self.W * self.L
         self.A_side   = self.H * self.L
@@ -86,6 +127,7 @@ class GrowingLumpModel:
         self.Genv  = []      # convection to ambient per lump (sum of exposed faces)
         self.Gbed  = []      # bed conductance (layer 0 only)
         self.edges = []      # list of (i, j, G) solid/contact links
+        self.edge_base = []  # corresponding G/k_ref factors for temperature-dependent k
 
         self.layer_bins   = {}   # layer index -> list of lump indices
         self.top_cover    = []   # per-lump TOP coverage fraction (0..1)
@@ -99,7 +141,10 @@ class GrowingLumpModel:
 
     # -------- helpers --------
     def alpha(self):
-        return self.k/(self.rho*self.cp)
+        cp_val = float(getattr(self, "cp_eff", self.cp))
+        k_val = float(getattr(self, "k_eff", self.k))
+        denom = self.rho * max(cp_val, 1e-12)
+        return k_val / denom if denom else 0.0
 
     def layer_of(self, zc):
         return int(np.floor(zc / self.H + 1e-6))
@@ -115,6 +160,7 @@ class GrowingLumpModel:
             self.Genv[i_prev] = max(0.0, self.Genv[i_prev] - self.G_endfilm)
             self.Genv[i_new]  = max(0.0, self.Genv[i_new]  - self.G_endfilm)
             self.edges.append((i_prev, i_new, self.G_end_pair))
+            self.edge_base.append(self.G_end_pair / self._k_ref_safe if self._k_ref_safe > 0.0 else 0.0)
 
     def _weight(self, d):
         """Overlap weight w(d) in [0,1]: full at d=0, zero at d>=W/2."""
@@ -180,6 +226,7 @@ class GrowingLumpModel:
 
             # add partial vertical conductance; reduce top convection of lower
             self.edges.append((j, i_new, self.G_vert_pair * phi))
+            self.edge_base.append((self.G_vert_pair * phi) / self._k_ref_safe if self._k_ref_safe > 0.0 else 0.0)
             # IMPORTANT: subtract the *effective* top convection (already scaled by h_top_mul)
             self.Genv[j] = max(0.0, self.Genv[j] - self.G_top * phi)
 
@@ -223,17 +270,47 @@ class GrowingLumpModel:
         T = np.asarray(self.T, float)
         net = np.zeros_like(T)
 
+        k_vals = None
+        cp_vals = None
+        if self.use_tabular:
+            if self._k_table is not None:
+                k_vals = self._interp_table(self._k_table, T)
+            if self._cp_table is not None:
+                cp_vals = self._interp_table(self._cp_table, T)
+
+        if k_vals is not None and k_vals.size:
+            self.k_eff = float(np.mean(k_vals))
+        else:
+            self.k_eff = float(self.k_ref)
+
+        if cp_vals is not None and cp_vals.size:
+            self.cp_eff = float(np.mean(cp_vals))
+            C_vec = np.maximum(self.mass * cp_vals, 1e-12)
+        else:
+            self.cp_eff = float(self.cp_ref)
+            C_vec = np.full(T.shape, self.C, dtype=float)
+
         # solid/contact edges
-        for (i, j, G) in self.edges:
+        for idx, (i, j, G_base) in enumerate(self.edges):
+            if k_vals is not None and idx < len(self.edge_base):
+                kij = 0.5 * (k_vals[i] + k_vals[j])
+                kij = max(0.0, float(kij))
+                G_eff = self.edge_base[idx] * kij
+            else:
+                G_eff = G_base
             dT = T[j] - T[i]
-            net[i] += G * dT
-            net[j] -= G * dT
+            net[i] += G_eff * dT
+            net[j] -= G_eff * dT
 
         # boundary exchanges (ambient + bed) — convection currently stored in Genv,
         # which already reflects coverage + per-face multipliers + end removal.
         Genv = np.asarray(self.Genv, float)
-        Gbed = np.asarray(self.Gbed, float)
-        net += Genv * (self.T_amb - T) + Gbed * (self.T_bed - T)
+        Gbed_raw = np.asarray(self.Gbed, float)
+        if k_vals is not None and Gbed_raw.size:
+            Gbed_eff = (Gbed_raw / self._k_ref_safe) * k_vals
+        else:
+            Gbed_eff = Gbed_raw
+        net += Genv * (self.T_amb - T) + Gbed_eff * (self.T_bed - T)
 
         # ---- Radiation (optional; independent of convection multipliers) ----
         # Linearized about current temperature; acts like a temperature-dependent conductance.
@@ -266,7 +343,7 @@ class GrowingLumpModel:
         # --------------------------------------------------------------------
 
         # update temperatures
-        T += (dt / self.C) * net
+        T += (dt / C_vec) * net
         self.T = T.tolist()
         self.times.append(self.times[-1] + dt)
         self.Tavg.append(float(T.mean()))

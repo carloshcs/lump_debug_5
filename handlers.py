@@ -37,6 +37,9 @@ def run_base(
     # --- Radiation ---
     EMISSIVITY: float = 0.8,
     ENABLE_RADIATION: bool = False,
+    USE_TABULAR: bool = False,
+    K_TABLE=None,
+    CP_TABLE=None,
     S=None, ui=None, GIFS=None, DIRS=None, logs_slot=None, pdf_slot=None
 ):
     seg_len, seg_width, seg_height = map(mm_to_m, (SEG_LEN_mm, SEG_WIDTH_mm, SEG_HEIGHT_mm))
@@ -83,7 +86,10 @@ def run_base(
         microgrid_enable=microgrid_enable, nx=mg_nx, nz=mg_nz,
         # --- Radiation ---
         emissivity=EMISSIVITY,
-        enable_radiation=ENABLE_RADIATION
+        enable_radiation=ENABLE_RADIATION,
+        use_tabular=USE_TABULAR,
+        k_table=K_TABLE,
+        cp_table=CP_TABLE,
     )
 
     # Run simulation
@@ -164,6 +170,9 @@ def optimize_to_target(
     # --- Radiation ---
     EMISSIVITY: float = 0.8,
     ENABLE_RADIATION: bool = False,
+    USE_TABULAR: bool = False,
+    K_TABLE=None,
+    CP_TABLE=None,
     S=None, ui=None, GIFS=None, DIRS=None, logs_slot=None
 ):
     # Pre-draw so UI does not flicker
@@ -178,6 +187,9 @@ def optimize_to_target(
         ord_ids=S.cache["info"]["ord_ids"],
         SEG_LEN=seg_len, SEG_WIDTH=seg_width, H=seg_height,
         RHO=RHO, CP=CP, K=K, T_BED=T_BED, T_INF=T_INF, H_COEF=H_COEF,
+        USE_TABULAR=bool(USE_TABULAR),
+        K_TABLE=K_TABLE,
+        CP_TABLE=CP_TABLE,
         DT=DT, COOLDOWN=COOLDOWN, SNAP_INT=SNAP_INT,
         LINK_MAX=LINK_MAX_F * seg_len,
         V_RAD=None if not V_RAD_MM.strip() else mm_to_m(float(V_RAD_MM)),
