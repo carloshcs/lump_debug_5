@@ -224,6 +224,47 @@ def get_inputs(S, key_prefix="main"):
         )
         S["MICROGRID_ENABLE"], S["MG_NZ"], S["MG_NX"] = bool(use_mg), int(mg_nz), int(mg_nx)
 
+    # Track configuration signature to detect when cached simulation results become stale.
+    signature = (
+        ("gcode_name", getattr(gcode_file, "name", "")),
+        ("material", mat_choice or ""),
+        ("rho", round(float(RHO), 6)),
+        ("k", round(float(K), 6)),
+        ("cp", round(float(CP), 6)),
+        ("emissivity", round(float(EMISSIVITY), 6)),
+        ("use_tabular", bool(USE_TABULAR)),
+        ("enable_radiation", bool(ENABLE_RADIATION)),
+        ("seg_width_mm", round(float(SEG_WIDTH_mm), 6)),
+        ("seg_height_mm", round(float(SEG_HEIGHT_mm), 6)),
+        ("seg_len_mm", round(float(SEG_LEN_mm), 6)),
+        ("t_nozzle", round(float(T_NOZZLE), 6)),
+        ("t_bed", round(float(T_BED), 6)),
+        ("t_inf", round(float(T_INF), 6)),
+        ("h_coef", round(float(H_COEF), 6)),
+        ("bed_frac", round(float(BED_FRAC), 6)),
+        ("contact_fr", round(float(CONTACT_FR), 6)),
+        ("dt", round(float(DT), 6)),
+        ("cooldown", round(float(COOLDOWN), 6)),
+        ("snap_int", round(float(SNAP_INT), 6)),
+        ("link_max_f", round(float(LINK_MAX_F), 6)),
+        ("v_rad_mm", V_RAD_MM.strip()),
+        ("marker_size", int(MARKER_SIZE)),
+        ("microgrid_enable", bool(use_mg)),
+        ("mg_nz", int(mg_nz)),
+        ("mg_nx", int(mg_nx)),
+    )
+    S.current_signature = signature
+    last_sig = S.get("last_sim_signature")
+    if getattr(S, "has_base", False) and last_sig is not None:
+        if signature != last_sig:
+            S.inputs_dirty = True
+        else:
+            S.inputs_dirty = False
+    elif not getattr(S, "has_base", False):
+        S.inputs_dirty = False
+    else:
+        S.inputs_dirty = False
+
     return {
         "gcode_file": gcode_file,
         "SEG_WIDTH_mm": SEG_WIDTH_mm, "SEG_HEIGHT_mm": SEG_HEIGHT_mm,
