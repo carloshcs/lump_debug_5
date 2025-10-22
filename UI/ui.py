@@ -29,6 +29,9 @@ class UI:
         self.overlay_container = None
         self.opt_gif_container = None
 
+        self.base_gif_info_slot = None
+        self.opt_gif_info_slot = None
+
         # Slots initialised on first use
         self.path_slot = None
         self.times_slot = None
@@ -66,7 +69,9 @@ class UI:
         if self.base_chart_container is None:
             self.base_chart_container = st.container()
             with self.base_chart_container:
+                st.markdown("#### Path overview")
                 self.path_slot = st.empty()
+                st.markdown("#### Layer timing")
                 self.times_slot = st.empty()
                 self.sub_header_slot = st.empty()
                 self.sub_base_slot = st.empty()
@@ -75,6 +80,8 @@ class UI:
         if self.base_gif_container is None:
             self.base_gif_container = st.container()
             with self.base_gif_container:
+                st.markdown("#### Thermal views")
+                self.base_gif_info_slot = st.empty()
                 row_base = st.columns(3)
                 self.iso_base_slot = row_base[0].empty()
                 self.top_base_slot = row_base[1].empty()
@@ -84,6 +91,7 @@ class UI:
         if self.overlay_container is None:
             self.overlay_container = st.container()
             with self.overlay_container:
+                st.markdown("#### Optimization comparison")
                 self.opt_times_overlay_slot = st.empty()
                 self.opt_sub_header_slot = st.empty()
                 self.sub_overlay_slot = st.empty()
@@ -92,6 +100,8 @@ class UI:
         if self.opt_gif_container is None:
             self.opt_gif_container = st.container()
             with self.opt_gif_container:
+                st.markdown("#### Optimized thermal views")
+                self.opt_gif_info_slot = st.empty()
                 row_opt = st.columns(3)
                 self.iso_opt_slot = row_opt[0].empty()
                 self.top_opt_slot = row_opt[1].empty()
@@ -103,12 +113,16 @@ class UI:
             slot = getattr(self, slot_name, None)
             if slot is not None:
                 slot.empty()
+        if self.base_gif_info_slot is not None:
+            self.base_gif_info_slot.empty()
 
     def clear_opt_gif_slots(self):
         for slot_name in ("iso_opt_slot", "top_opt_slot", "front_opt_slot"):
             slot = getattr(self, slot_name, None)
             if slot is not None:
                 slot.empty()
+        if self.opt_gif_info_slot is not None:
+            self.opt_gif_info_slot.empty()
 
     def clear_all(self):
         for slot_name in ("path_slot", "times_slot", "sub_base_slot"):
@@ -217,6 +231,16 @@ class UI:
             time.sleep(0.2)
 
         tick_suffix = f" • r{S.replay_tick}"
+        if all(b is None for b in blobs):
+            info_slot = self.base_gif_info_slot if kind == "base" else self.opt_gif_info_slot
+            if info_slot is not None:
+                info_slot.info("No imagery available yet. Run a simulation to generate frames.")
+            return
+
+        info_slot = self.base_gif_info_slot if kind == "base" else self.opt_gif_info_slot
+        if info_slot is not None:
+            info_slot.empty()
+
         for s, b, cap in zip(slots, blobs, caps):
             if b is not None:
                 s.image(b, caption=cap + tick_suffix, use_container_width=True)

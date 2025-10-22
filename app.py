@@ -46,6 +46,7 @@ if S.mode == "home":
     S.show_editor = False  # Hide editor when returning home
 
     st.title("Lumped Thermal Simulator")
+    st.caption("Mode: Home")
 
     # 🧩 Quick Tutorial (only shown on home)
     st.markdown(
@@ -64,7 +65,15 @@ if S.mode == "home":
     )
 
 elif S.mode == "editor":
-    st.title("Material Editor")
+    header_col, action_col = st.columns([4, 1])
+    with header_col:
+        st.title("Material Editor")
+        st.caption("Mode: Editor")
+    with action_col:
+        if st.button("🏠 Home", use_container_width=True):
+            S.mode = "home"
+            S.show_editor = False
+            st.rerun()
 
     # Display the material editor
     show_material_editor(inputs["MATERIALS_DIR"], inputs["MATERIALS"], inputs["parse_table_text"])
@@ -85,7 +94,16 @@ elif S.mode == "simulation":
     S.show_editor = False
 
     # --- 🧠 Results Page ---
-    st.title("Thermal Simulation Results")
+    header_col, action_col = st.columns([4, 1])
+    with header_col:
+        st.title("Thermal Simulation Results")
+        st.caption("Mode: Simulation")
+    with action_col:
+        if st.button("🏠 Home", use_container_width=True, key="top_home"):
+            S.mode = "home"
+            S.simulation_started = False
+            S.show_editor = False
+            st.rerun()
 
     show_optimization_section(S, ui, inputs, DIRS, GIFS, last_frame_path)
 
