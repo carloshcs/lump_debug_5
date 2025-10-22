@@ -45,20 +45,6 @@ def get_inputs(S, key_prefix="main"):
     """
     st.sidebar.header("Inputs")
 
-    mode_key = f"{key_prefix}_input_mode"
-    default_mode = st.session_state.get(mode_key, S.get("INPUT_MODE", "Basic"))
-    mode_index = 0 if str(default_mode).lower() != "advanced" else 1
-    input_mode = st.sidebar.radio(
-        "Detail level",
-        ("Basic", "Advanced"),
-        index=mode_index,
-        key=mode_key,
-        help="Switch to Advanced to unlock fine-grained simulation controls.",
-    )
-    disable_adv = input_mode == "Basic"
-    S["INPUT_MODE"] = input_mode
-    S["NOOB_SETUP"] = disable_adv
-
     # === Upload ===
     gcode_file = st.sidebar.file_uploader(
         "Upload G-code",
@@ -154,23 +140,21 @@ def get_inputs(S, key_prefix="main"):
         ENABLE_RADIATION = bool(ENABLE_RADIATION)
         S["ENABLE_RADIATION"] = ENABLE_RADIATION
 
+        def readonly(label, val):
+            st.markdown(
+                f"<div style='background-color:#f7f7f7; padding:6px; border-radius:4px; color:#333; margin-bottom:4px;'>{label}: <b>{val}</b></div>",
+                unsafe_allow_html=True
+            )
+
         if mat_choice:
-            metric_cols = st.columns(4)
-            metrics = [
-                ("ρ (kg/m³)", f"{rho_seed:.0f}"),
-                ("k (W/m·K)", f"{k_seed:.2f}"),
-                ("cₚ (J/kg·K)", f"{cp_seed:.0f}"),
-                ("ε", f"{emi_seed:.2f}"),
-            ]
-            for col, (label, value) in zip(metric_cols, metrics):
-                col.metric(label, value)
+            readonly("Density ρ (kg/m³)", rho_seed)
+            readonly("Conductivity k (W/m·K)", k_seed)
+            readonly("Specific heat cₚ (J/kg·K)", cp_seed)
+            readonly("Emissivity ε (–)", emi_seed)
             RHO, K, CP, EMISSIVITY = rho_seed, k_seed, cp_seed, emi_seed
         else:
             RHO, K, CP, EMISSIVITY = 1200.0, 0.25, 1300.0, 0.85
         S["EMISSIVITY"] = EMISSIVITY
-
-        if getattr(S, "has_base", False):
-            st.caption("Re-run the simulation to apply material setting changes.")
 
         mat_tables = MATERIALS.get(mat_choice, {}) if mat_choice else {}
         K_TABLE = mat_tables.get("k_table")
@@ -189,6 +173,17 @@ def get_inputs(S, key_prefix="main"):
         COOLDOWN = st.number_input(
             "Post-cooldown (s)", 0.0, 300.0, 0.0, 5.0, key=f"{key_prefix}_COOLDOWN"
         )
+
+        noob_key = f"{key_prefix}_NOOB_SETUP"
+        noob_default = bool(S.get("NOOB_SETUP", True))
+        noob_setup = st.checkbox(
+            "Noob setup",
+            value=noob_default,
+            key=noob_key,
+            help="Keeps the recommended defaults. Uncheck to fine-tune advanced parameters.",
+        )
+        S["NOOB_SETUP"] = bool(noob_setup)
+        disable_adv = bool(noob_setup)
 
         SEG_LEN_mm = st.number_input(
             "Lump length (mm)", 0.1, 100.0, 10.0, 1.0,
@@ -287,9 +282,6 @@ def get_inputs(S, key_prefix="main"):
             key=f"{key_prefix}_MG_NX",
         )
         S["MICROGRID_ENABLE"], S["MG_NZ"], S["MG_NX"] = bool(use_mg), int(mg_nz), int(mg_nx)
-
-        if getattr(S, "has_base", False):
-            st.caption("Re-run the simulation to apply advanced parameter changes.")
 
     # Track configuration signature to detect when cached simulation results become stale.
     signature = (
