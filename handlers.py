@@ -6,7 +6,7 @@ Created on Fri Aug 22 15:59:30 2025
 
 # handlers.py
 import os
-from typing import Optional, Callable, List
+from typing import Optional
 import streamlit as st
 import numpy as np
 
@@ -100,8 +100,7 @@ def run_base(
         record_times=[tt for (_, _, tt, _, _) in info.get("next_starts", [])]
     )
     S.cache["states"] = states
-    if logs_slot is not None:
-        logs_slot.code("\n".join(str(x) for x in logs) if isinstance(logs, list) else str(logs))
+    logs_slot.code("\n".join(str(x) for x in logs) if isinstance(logs, list) else str(logs))
 
     # Extract substrate temps
     pairs_point, pairs_mean = compute_layer_pairs(states, info, seg_height)
@@ -174,25 +173,12 @@ def optimize_to_target(
     USE_TABULAR: bool = False,
     K_TABLE=None,
     CP_TABLE=None,
-    S=None, ui=None, GIFS=None, DIRS=None, logs_slot=None,
-    progress_cb: Optional[Callable[[str], None]] = None
+    S=None, ui=None, GIFS=None, DIRS=None, logs_slot=None
 ):
     # Pre-draw so UI does not flicker
     ui.draw_base_charts(S)
     ui.show_gifs("base", S, last_frame_path)
     ui.draw_opt_overlay_if_available(S)
-
-    log_lines: List[str] = []
-
-    def emit(msg: str):
-        text = str(msg)
-        log_lines.append(text)
-        if progress_cb is not None:
-            progress_cb(text)
-        elif logs_slot is not None:
-            logs_slot.code("\n".join(log_lines))
-
-    emit("Starting optimization...")
 
     seg_len, seg_width, seg_height = map(mm_to_m, (SEG_LEN_mm, SEG_WIDTH_mm, SEG_HEIGHT_mm))
 
@@ -218,8 +204,7 @@ def optimize_to_target(
 
     s_opt, t_opt, info_opt, states_opt, logs_opt, pp_opt, pm_opt = optimize_layer_speeds_sequential(
         cfg, target_T=float(opt_target), iters=int(opt_iters),
-        tol=float(opt_tol), smin=float(opt_smin), smax=float(opt_smax),
-        status_cb=emit
+        tol=float(opt_tol), smin=float(opt_smin), smax=float(opt_smax)
     )
 
     # Cache + logs
@@ -227,13 +212,7 @@ def optimize_to_target(
     S.cache["t_opt"] = t_opt
     S.cache["info_opt"] = info_opt
     S.cache["pp_opt"], S.cache["pm_opt"] = pp_opt, pm_opt
-    if isinstance(logs_opt, list):
-        for entry in logs_opt:
-            emit(entry)
-    elif logs_opt:
-        emit(logs_opt)
-
-    emit("Rendering optimized outputs...")
+    logs_slot.code("\n".join(str(x) for x in logs_opt) if isinstance(logs_opt, list) else str(logs_opt))
 
     # Overlay and visuals
     if ui.sub_overlay_slot is not None:
@@ -271,8 +250,6 @@ def optimize_to_target(
     ui.clear_opt_gif_slots()
     S.replay_tick += 1
     ui.show_gifs("opt", S, last_frame_path)
-
-    emit("Optimization visuals updated.")
 
     # Build optimized G-code for download
     if "gbytes" in S.cache:
